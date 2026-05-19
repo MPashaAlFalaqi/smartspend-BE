@@ -32,14 +32,15 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 
     // Manage Users
-    Route::get('/users',              [AdminController::class, 'getAllUsers']);
-    Route::get('/users/{id}',         [AdminController::class, 'getUser']);
-    Route::post('/users',             [AdminController::class, 'createUser']);
-    Route::put('/users/{id}',         [AdminController::class, 'updateUser']);
-    Route::delete('/users/{id}',      [AdminController::class, 'deleteUser']);
-    Route::patch('/users/{id}/toggle',[AdminController::class, 'toggleStatus']);
+    Route::get('/users',               [AdminController::class, 'getAllUsers']);
+    Route::get('/users/{id}',          [AdminController::class, 'getUser']);
+    Route::post('/users',              [AdminController::class, 'createUser']);
+    Route::put('/users/{id}',          [AdminController::class, 'updateUser']);
+    Route::delete('/users/{id}',       [AdminController::class, 'deleteUser']);
+    Route::patch('/users/{id}/toggle', [AdminController::class, 'toggleStatus']);
 
     // Reports
-    Route::get('/reports',            [AdminController::class, 'getReports']);
-    Route::get('/reports/growth',     [AdminController::class, 'getUserGrowth']);
+    Route::get('/reports',             [AdminController::class, 'getReports']);
+    Route::get('/reports/growth',      [AdminController::class, 'getUserGrowth']);
+    Route::get('/reports/activity',    [AdminController::class, 'getRecentActivity']);
 });
