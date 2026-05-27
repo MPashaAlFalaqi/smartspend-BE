@@ -1,41 +1,28 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Models;
 
-use Illuminate\Http\Request;
-use App\Models\BudgetPlanner;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
-class BudgetPlannerController extends Controller
+class BudgetPlanner extends Model
 {
-    public function store(Request $request)
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'pemasukan',
+        'pengeluaran_pokok',
+        'pengeluaran_keinginan',
+        'tabungan_investasi',
+        'bulan',
+        'tahun',
+        'kategori_risiko',
+        'pesan_analisis'
+    ];
+
+    public function user()
     {
-        // Validasi data input dari frontend sesuai kolom Model kamu
-        $validated = $request->validate([
-            'pemasukan'             => 'required|numeric',
-            'pengeluaran_pokok'     => 'required|numeric',
-            'pengeluaran_keinginan' => 'required|numeric',
-            'tabungan_investasi'    => 'required|numeric',
-            'bulan'                 => 'required|string',
-            'tahun'                 => 'required|integer',
-        ]);
-
-        // Simpan ke database terikat dengan ID user yang sedang login
-        $budget = Auth::user()->budgetPlanners()->create([
-            'pemasukan'             => $validated['pemasukan'],
-            'pengeluaran_pokok'     => $validated['pengeluaran_pokok'],
-            'pengeluaran_keinginan' => $validated['pengeluaran_keinginan'],
-            'tabungan_investasi'    => $validated['tabungan_investasi'],
-            'bulan'                 => $validated['bulan'],
-            'tahun'                 => $validated['tahun'],
-            'kategori_risiko', // Tambahkan ini
-    'pesan_analisis'
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Data Budget Planner berhasil disimpan!',
-            'data'    => $budget
-        ], 201);
+        return $this->belongsTo(User::class);
     }
 }

@@ -12,15 +12,11 @@ class RiskProfileController extends Controller
         $request->validate([
             'usia'        => 'required|integer',
             'pekerjaan'   => 'required|string',
-            'status'      => 'required',
+            'status'      => 'required|in:mahasiswa,pekerja,wiraswasta,pensiun', // Ditambah validasi enum biar aman
             'penghasilan' => 'required|numeric',
         ]);
 
-        $kategori = $this->tentukanKategori(
-            $request->usia,
-            $request->penghasilan
-        );
-
+        // Menyimpan data murni tanpa menghitung kategori lagi
         $profile = RiskProfile::updateOrCreate(
             ['user_id' => $request->user()->id],
             [
@@ -28,14 +24,12 @@ class RiskProfileController extends Controller
                 'pekerjaan'   => $request->pekerjaan,
                 'status'      => $request->status,
                 'penghasilan' => $request->penghasilan,
-                'kategori'    => $kategori,
             ]
         );
 
         return response()->json([
-            'message'  => 'Profil risiko berhasil disimpan',
+            'message'  => 'Data diri berhasil disimpan',
             'profile'  => $profile,
-            'kategori' => $kategori,
         ]);
     }
 
@@ -45,13 +39,7 @@ class RiskProfileController extends Controller
             'user_id', $request->user()->id
         )->first();
 
-        return response()->json($profile);
-    }
-
-    private function tentukanKategori($usia, $penghasilan)
-    {
-        if ($penghasilan >= 10000000) return 'agresif';
-        if ($penghasilan >= 5000000)  return 'moderat';
-        return 'konservatif';
+        // Kalau datanya kosong, kembalikan json kosong agar frontend aman
+        return response()->json($profile ?? (object)[]);
     }
 }
