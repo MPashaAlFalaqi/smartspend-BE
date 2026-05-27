@@ -8,8 +8,17 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\AdminController;
 
 // ===== PUBLIC ROUTES =====
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/register',    [AuthController::class, 'register']);
+Route::post('/login',       [AuthController::class, 'login']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
+// ===== PUBLIC ROUTES =====
+Route::post('/register',    [AuthController::class, 'register']);
+Route::post('/login',       [AuthController::class, 'login']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
+Route::post('/password/email', [AuthController::class, 'sendResetLinkEmail']);
+
+// Cukup tambahkan ->name('password.reset') di ujung baris ini:
+Route::post('/password/reset', [AuthController::class, 'resetPassword'])->name('password.reset');
 
 // ===== USER ROUTES =====
 Route::middleware('auth:sanctum')->group(function () {
@@ -43,4 +52,5 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/reports',             [AdminController::class, 'getReports']);
     Route::get('/reports/growth',      [AdminController::class, 'getUserGrowth']);
     Route::get('/reports/activity',    [AdminController::class, 'getRecentActivity']);
+
 });

@@ -16,6 +16,9 @@ class BudgetPlannerController extends Controller
             'tabungan_investasi'    => 'required|numeric',
             'bulan'                 => 'required|string',
             'tahun'                 => 'required|integer',
+            // TAMBAHAN VALIDASI BARU
+            'kategori_risiko'       => 'required|string|in:konservatif,moderat,agresif',
+            'pesan_analisis'        => 'required|string',
         ]);
 
         $budget = BudgetPlanner::updateOrCreate(
@@ -29,6 +32,9 @@ class BudgetPlannerController extends Controller
                 'pengeluaran_pokok'     => $request->pengeluaran_pokok,
                 'pengeluaran_keinginan' => $request->pengeluaran_keinginan,
                 'tabungan_investasi'    => $request->tabungan_investasi,
+                // TAMBAHAN FIELD BARU UNTUK DISIMPAN
+                'kategori_risiko'       => $request->kategori_risiko,
+                'pesan_analisis'        => $request->pesan_analisis,
             ]
         );
 
@@ -52,6 +58,7 @@ class BudgetPlannerController extends Controller
             ->orderBy('bulan', 'desc')
             ->first();
 
+        // Otomatis mengembalikan seluruh data budget termasuk kolom baru ke React
         return response()->json($budget);
     }
 }
