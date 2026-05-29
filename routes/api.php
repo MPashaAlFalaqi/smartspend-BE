@@ -18,7 +18,10 @@ Route::post('/password/reset', [AuthController::class, 'resetPassword'])->name('
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout',   [AuthController::class, 'logout']);
     Route::get('/me',        [AuthController::class, 'me']);
-    Route::put('/profile',   [AuthController::class, 'updateProfile']);
+    
+    // REVISI & TAMBAHAN: Disesuaikan dengan URL yang dipanggil oleh UserProfile.jsx
+    Route::put('/user/update',          [AuthController::class, 'updateProfile']);
+    Route::put('/user/update-password', [AuthController::class, 'updatePassword']);
 
     // Risk Profile
     Route::post('/risk-profile', [RiskProfileController::class, 'store']);

@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\BudgetPlanner;
+use App\Models\Transaction; // <-- Impor model Transaction
 use Illuminate\Support\Facades\Auth;
 
 class BudgetPlannerController extends Controller
 {
     public function store(Request $request)
     {
-        // 1. Validasi data input murni dari frontend
+        // 1. Validasi data input murni dari frontend (ditambahkan validasi untuk array rincian)
         $validated = $request->validate([
             'pemasukan'             => 'required|numeric',
             'pengeluaran_pokok'     => 'required|numeric',
@@ -18,13 +19,15 @@ class BudgetPlannerController extends Controller
             'tabungan_investasi'    => 'required|numeric',
             'bulan'                 => 'required|string',
             'tahun'                 => 'required|integer',
+            'detail_pokok'          => 'nullable|array',
+            'detail_keinginan'      => 'nullable|array',
+            'detail_tabungan'       => 'nullable|array',
         ]);
 
         // 2. Ambil data diri user dari tabel risk_profiles
         $user = Auth::user();
-        $profile = $user ? $user->riskProfile : null; // Mengambil relasi ke risk profile
+        $profile = $user ? $user->riskProfile : null; 
 
-        // Antisipasi jika user belum isi data diri/risk-profile sama sekali
         if (!$profile) {
             return response()->json([
                 'success' => false,
@@ -32,7 +35,7 @@ class BudgetPlannerController extends Controller
             ], 400);
         }
 
-        // 3. LOGIKA OTOMATIS: Penentuan kategori risiko berdasarkan penghasilan di risk profile
+        // 3. LOGIKA OTOMATIS: Penentuan kategori risiko
         $penghasilanUser = $profile->penghasilan;
         
         if ($penghasilanUser >= 10000000) {
@@ -43,7 +46,7 @@ class BudgetPlannerController extends Controller
             $kategoriRisiko = 'konservatif';
         }
 
-        // 4. LOGIKA OTOMATIS: Membuat pesan analisis berdasarkan kategori risiko
+        // 4. LOGIKA OTOMATIS: Membuat pesan analisis
         if ($kategoriRisiko === 'agresif') {
             $pesanAnalisis = 'Profil Anda agresif. Anda memiliki ruang lebih untuk alokasi tabungan dan investasi berisiko tinggi.';
         } elseif ($kategoriRisiko === 'moderat') {
@@ -52,7 +55,7 @@ class BudgetPlannerController extends Controller
             $pesanAnalisis = 'Profil Anda konservatif. Sebaiknya fokus pada dana darurat dan pengeluaran pokok yang aman.';
         }
 
-        // 5. Simpan atau Update ke database menggunakan updateOrCreate agar tidak duplikat di bulan yang sama
+        // 5. Simpan atau Update ke database Budget Planner
         $budget = BudgetPlanner::updateOrCreate(
             [
                 'user_id' => $user->id,
@@ -64,19 +67,105 @@ class BudgetPlannerController extends Controller
                 'pengeluaran_pokok'     => $validated['pengeluaran_pokok'],
                 'pengeluaran_keinginan' => $validated['pengeluaran_keinginan'],
                 'tabungan_investasi'    => $validated['tabungan_investasi'],
-                'kategori_risiko'       => $kategoriRisiko, // Terisi otomatis dari logika sistem
-                'pesan_analisis'        => $pesanAnalisis,  // Terisi otomatis dari logika sistem
+                'kategori_risiko'       => $kategoriRisiko, 
+                'pesan_analisis'        => $pesanAnalisis,  
             ]
         );
 
-        // 6. Hitung spending alert (tambahan info dari kodingan kamu sebelumnya)
+        // =========================================================================
+        // 6. OTOMATISASI KE HISTORY TRANSAKSI (REVISI INPUT MULTIPLE DETAILS)
+        // =========================================================================
+
+        $bulanTahun = $validated['bulan'] . ' ' . $validated['tahun'];
+
+        // HAPUS DATA LAMA: Agar saat user update budget, data lama di history tidak menumpuk/duplikat
+        Transaction::where('user_id', $user->id)
+            ->whereIn('kategori', [
+                'Pengeluaran Pokok (' . $bulanTahun . ')',
+                'Pengeluaran Keinginan (' . $bulanTahun . ')',
+                'Tabungan & Investasi (' . $bulanTahun . ')'
+            ])->delete();
+
+        // A. Masukkan Rincian Pengeluaran Pokok ke History
+        if (!empty($request->detail_pokok) && is_array($request->detail_pokok)) {
+            foreach ($request->detail_pokok as $item) {
+                Transaction::create([
+                    'user_id'  => $user->id,
+                    'kategori' => 'Pengeluaran Pokok (' . $bulanTahun . ')',
+                    'nama'     => $item['nama'] ?? 'Rincian Pokok',
+                    'jumlah'   => $item['jumlah'] ?? 0,
+                    'tipe'     => 'pengeluaran',
+                    'tanggal'  => now(),
+                ]);
+            }
+        } else {
+            // Fallback jika frontend tidak mengirimkan array rincian
+            Transaction::create([
+                'user_id'  => $user->id,
+                'kategori' => 'Pengeluaran Pokok (' . $bulanTahun . ')',
+                'nama'     => 'Anggaran Kebutuhan Pokok',
+                'jumlah'   => $validated['pengeluaran_pokok'],
+                'tipe'     => 'pengeluaran',
+                'tanggal'  => now(),
+            ]);
+        }
+
+        // B. Masukkan Rincian Pengeluaran Keinginan ke History
+        if (!empty($request->detail_keinginan) && is_array($request->detail_keinginan)) {
+            foreach ($request->detail_keinginan as $item) {
+                Transaction::create([
+                    'user_id'  => $user->id,
+                    'kategori' => 'Pengeluaran Keinginan (' . $bulanTahun . ')',
+                    'nama'     => $item['nama'] ?? 'Rincian Keinginan',
+                    'jumlah'   => $item['jumlah'] ?? 0,
+                    'tipe'     => 'pengeluaran',
+                    'tanggal'  => now(),
+                ]);
+            }
+        } else {
+            Transaction::create([
+                'user_id'  => $user->id,
+                'kategori' => 'Pengeluaran Keinginan (' . $bulanTahun . ')',
+                'nama'     => 'Anggaran Kebutuhan Keinginan',
+                'jumlah'   => $validated['pengeluaran_keinginan'],
+                'tipe'     => 'pengeluaran',
+                'tanggal'  => now(),
+            ]);
+        }
+
+        // C. Masukkan Rincian Tabungan ke History
+        if (!empty($request->detail_tabungan) && is_array($request->detail_tabungan)) {
+            foreach ($request->detail_tabungan as $item) {
+                Transaction::create([
+                    'user_id'  => $user->id,
+                    'kategori' => 'Tabungan & Investasi (' . $bulanTahun . ')',
+                    'nama'     => $item['nama'] ?? 'Rincian Alokasi Tabungan',
+                    'jumlah'   => $item['jumlah'] ?? 0,
+                    'tipe'     => 'tabungan',
+                    'tanggal'  => now(),
+                ]);
+            }
+        } else {
+            Transaction::create([
+                'user_id'  => $user->id,
+                'kategori' => 'Tabungan & Investasi (' . $bulanTahun . ')',
+                'nama'     => 'Alokasi Tabungan',
+                'jumlah'   => $validated['tabungan_investasi'],
+                'tipe'     => 'tabungan',
+                'tanggal'  => now(),
+            ]);
+        }
+
+        // =========================================================================
+
+        // 7. Hitung spending alert
         $totalPengeluaran = $validated['pengeluaran_pokok'] + $validated['pengeluaran_keinginan'];
         $persenTerpakai = ($totalPengeluaran / $validated['pemasukan']) * 100;
         $spendingAlert = $persenTerpakai >= 95;
 
         return response()->json([
             'success'         => true,
-            'message'         => 'Data Budget Planner berhasil dihitung dan disimpan!',
+            'message'         => 'Data Budget Planner berhasil dihitung dan disimpan ke History!',
             'data'            => $budget,
             'persen_terpakai' => round($persenTerpakai, 1),
             'spending_alert'  => $spendingAlert
@@ -91,7 +180,6 @@ class BudgetPlannerController extends Controller
         $user = Auth::user();
         $profile = $user ? $user->riskProfile : null;
         
-        // Ambil nominal penghasilan dari risk profile, jika belum ada gunakan fallback 4.000.000
         $pemasukanTerbaru = $profile ? (float)$profile->penghasilan : 4000000;
 
         // 2. Ambil rekaman data budget planner terakhir milik user ini
@@ -100,7 +188,7 @@ class BudgetPlannerController extends Controller
             ->orderBy('bulan', 'desc')
             ->first();
 
-        // 3. JIKA BELUM PERNAH ADA BUDGET PLANNER: Berikan response struktur awal dengan nominal dari Risk Profile
+        // 3. JIKA BELUM PERNAH ADA BUDGET PLANNER
         if (!$budget) {
             return response()->json([
                 'id' => null,
@@ -115,7 +203,7 @@ class BudgetPlannerController extends Controller
             ]);
         }
 
-        // 4. JIKA REKAMAN ANGGARAN ADA: Paksa kolom 'pemasukan' agar sinkron dengan data Risk Profile paling baru
+        // 4. JIKA REKAMAN ANGGARAN ADA
         $budget->pemasukan = $pemasukanTerbaru;
 
         return response()->json($budget);

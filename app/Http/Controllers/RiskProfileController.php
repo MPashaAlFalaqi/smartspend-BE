@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\RiskProfile;
+use App\Models\Transaction; // <-- Impor model Transaction agar bisa digunakan
 use Illuminate\Http\Request;
 
 class RiskProfileController extends Controller
@@ -12,13 +13,15 @@ class RiskProfileController extends Controller
         $request->validate([
             'usia'        => 'required|integer',
             'pekerjaan'   => 'required|string',
-            'status'      => 'required|in:mahasiswa,pekerja,wiraswasta,pensiun', // Ditambah validasi enum biar aman
+            'status'      => 'required|in:mahasiswa,pekerja,wiraswasta,pensiun', 
             'penghasilan' => 'required|numeric',
         ]);
 
-        // Menyimpan data murni tanpa menghitung kategori lagi
+        $userId = $request->user()->id;
+
+        // 1. Menyimpan data murni Risk Profile
         $profile = RiskProfile::updateOrCreate(
-            ['user_id' => $request->user()->id],
+            ['user_id' => $userId],
             [
                 'usia'        => $request->usia,
                 'pekerjaan'   => $request->pekerjaan,
@@ -27,8 +30,23 @@ class RiskProfileController extends Controller
             ]
         );
 
+        // 2. OTOMATISASI: Masuk ke history sebagai Pemasukan
+        // REVISI: Menggunakan kolom 'nama', 'jumlah', dan 'tipe' sesuai struktur DB kamu
+        Transaction::updateOrCreate(
+            [
+                'user_id'  => $userId,
+                'kategori' => 'Pendapatan (Risk Profile)', // Kunci pencarian biar ga double
+            ],
+            [
+                'nama'     => 'Saldo Awal / Pemasukan Bulanan',
+                'jumlah'   => $request->penghasilan,
+                'tipe'     => 'pemasukan', // Masuk ke kartu TOTAL PEMASUKAN di history
+                'tanggal'  => now(), // Tanggal transaksi hari ini
+            ]
+        );
+
         return response()->json([
-            'message'  => 'Data diri berhasil disimpan',
+            'message'  => 'Data diri dan saldo awal berhasil disimpan',
             'profile'  => $profile,
         ]);
     }
@@ -39,7 +57,6 @@ class RiskProfileController extends Controller
             'user_id', $request->user()->id
         )->first();
 
-        // Kalau datanya kosong, kembalikan json kosong agar frontend aman
         return response()->json($profile ?? (object)[]);
     }
 }

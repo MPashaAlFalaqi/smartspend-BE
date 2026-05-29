@@ -9,8 +9,8 @@ class Transaction extends Model
     protected $fillable = [
         'user_id',
         'nama',
-        'jumlah',
-        'tipe',
+        'jumlah',   // Sesuai dengan database kamu
+        'tipe',     // Sesuai dengan database kamu
         'kategori',
         'tanggal',
     ];

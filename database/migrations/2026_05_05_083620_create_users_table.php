@@ -10,9 +10,11 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('nama');
+            $table->string('nama'); // Tetap pakai 'nama' sesuai database aslimu
+            $table->string('username')->unique(); // <-- TAMBAHKAN INI (Wajib Unik)
             $table->string('email')->unique();
-            $table->string('password');
+            $table->string('no_hp')->nullable(); // <-- TAMBAHKAN INI (Nullable agar Google Login yang gak punya No HP gak error)
+            $table->string('password')->nullable(); // Diubah jadi nullable jika nanti pakai Google Login tanpa password manual
             $table->enum('role', ['user', 'admin'])->default('user');
             $table->enum('status', ['aktif', 'nonaktif'])->default('aktif');
             $table->timestamps();
@@ -21,6 +23,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema.dropIfExists('users');
     }
 };
