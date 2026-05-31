@@ -162,17 +162,18 @@ class AuthController extends Controller
         // Generate username otomatis dari email kalau user baru daftar lewat Google
         $usernameFromEmail = explode('@', $email)[0] . Str::random(4);
 
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            [
-                'nama'      => $nama,
-                'username'  => $existingUser ? $existingUser->username : $usernameFromEmail,
-                'google_id' => $googleId, 
-                'password'  => $existingUser ? $existingUser->password : Hash::make(Str::random(24)), 
-                'role'      => $existingUser ? $existingUser->role : 'user', 
-                'status'    => $existingUser ? $existingUser->status : 'aktif' 
-            ]
-        );
+       $user = User::updateOrCreate(
+    ['email' => $email],
+    [
+        'nama'      => $nama,
+        // Jika user sudah punya username di DB, pakai yang ada. Jika belum, berikan username otomatis.
+        'username'  => $existingUser && $existingUser->username ? $existingUser->username : $usernameFromEmail,
+        'google_id' => $googleId,
+        'password'  => $existingUser ? $existingUser->password : Hash::make(Str::random(16)),
+        'role'      => $existingUser ? $existingUser->role : 'user',
+        'status'    => $existingUser ? $existingUser->status : 'aktif',
+    ]
+);
 
         if ($user->status === 'nonaktif') {
             return response()->json(['message' => 'Akun kamu telah dinonaktifkan'], 403);
