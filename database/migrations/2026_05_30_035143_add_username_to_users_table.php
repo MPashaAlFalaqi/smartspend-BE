@@ -6,18 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // Kita buat nullable() supaya saat login Google, kolom ini bisa dikosongkan dulu
-            $table->string('username')->nullable()->unique()->after('nama');
-        });
+        // Dikosongkan agar tidak membuat eror duplikat kolom username
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('username');
-        });
+        // Dikosongkan
     }
 };

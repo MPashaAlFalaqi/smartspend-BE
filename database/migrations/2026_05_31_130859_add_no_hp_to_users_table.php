@@ -11,10 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $col) {
-            // Menambahkan kolom no_hp setelah kolom email, bertipe string, dan boleh kosong (nullable)
-            $col->string('no_hp')->nullable()->after('email');
-        });
+        // Dikosongkan agar tidak membuat eror duplikat kolom no_hp
     }
 
     /**
@@ -22,9 +19,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $col) {
-            // Menghapus kembali kolom jika dilakukan rollback
-            $col->dropColumn('no_hp');
-        });
+        // Dikosongkan
     }
 };

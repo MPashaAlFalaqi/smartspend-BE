@@ -18,15 +18,15 @@ class AuthController extends Controller
             'nama'     => 'required|string',
             'username' => 'required|string|unique:users,username',
             'email'    => 'required|email|unique:users,email',
-            'no_hp'    => 'required|string', // <-- Tambahkan validasi no_hp
+            'no_hp'    => 'required|string', 
             'password' => 'required|min:8',
         ]);
 
         $user = User::create([
-            'nama'     => $request->nama, // <-- FIXED: dari $request->name jadi $request->nama
+            'nama'     => $request->nama, 
             'username' => $request->username,
             'email'    => $request->email,
-            'no_hp'    => $request->no_hp, // <-- FIXED: Masukkan data no_hp dari React
+            'no_hp'    => $request->no_hp, 
             'password' => Hash::make($request->password),
             'status'   => 'aktif', 
             'role'     => 'user',   
@@ -82,21 +82,30 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        // Validasi data input dari React frontend
         $request->validate([
-            'nama'          => 'required|string',
-            'username'      => 'required|string|unique:users,username,' . $user->id,
+            'nama'          => 'required|string|max:255',
+            'username'      => 'required|string|max:255|unique:users,username,' . $user->id,
             'tanggal_lahir' => 'nullable|string',
             'kota'          => 'nullable|string',
             'jenis_kelamin' => 'nullable|string',
+            'avatar'        => 'nullable|string', 
         ]);
 
-        $user->update([
-            'nama'          => $request->nama, // <-- FIXED: dari $request->name jadi $request->nama
-            'username'      => $request->username,
-            'tanggal_lahir' => $request->tanggal_lahir,
-            'kota'          => $request->kota,
-            'jenis_kelamin' => $request->jenis_kelamin,
-        ]);
+        // Mapping manual satu per satu agar kebal dari error ketidakcocokan camelCase/snake_case
+        $user->nama = $request->nama;
+        $user->username = $request->username;
+        $user->tanggal_lahir = $request->tanggal_lahir ?: null;
+        $user->kota = $request->kota ?: null;
+        $user->jenis_kelamin = $request->jenis_kelamin ?: 'Laki-laki';
+
+        // Jika user melakukan upload avatar baru (Base64 string), masukkan ke database
+        if ($request->has('avatar')) {
+            $user->avatar = $request->avatar;
+        }
+
+        // Simpan langsung perubahan ke tabel MySQL menggunakan method save()
+        $user->save();
 
         return response()->json([
             'message' => 'Profil berhasil diupdate',
@@ -158,22 +167,19 @@ class AuthController extends Controller
         }
 
         $existingUser = User::where('email', $email)->first();
-
-        // Generate username otomatis dari email kalau user baru daftar lewat Google
         $usernameFromEmail = explode('@', $email)[0] . Str::random(4);
 
-       $user = User::updateOrCreate(
-    ['email' => $email],
-    [
-        'nama'      => $nama,
-        // Jika user sudah punya username di DB, pakai yang ada. Jika belum, berikan username otomatis.
-        'username'  => $existingUser && $existingUser->username ? $existingUser->username : $usernameFromEmail,
-        'google_id' => $googleId,
-        'password'  => $existingUser ? $existingUser->password : Hash::make(Str::random(16)),
-        'role'      => $existingUser ? $existingUser->role : 'user',
-        'status'    => $existingUser ? $existingUser->status : 'aktif',
-    ]
-);
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            [
+                'nama'      => $nama,
+                'username'  => $existingUser && $existingUser->username ? $existingUser->username : $usernameFromEmail,
+                'google_id' => $googleId,
+                'password'  => $existingUser ? $existingUser->password : Hash::make(Str::random(16)),
+                'role'      => $existingUser ? $existingUser->role : 'user',
+                'status'    => $existingUser ? $existingUser->status : 'aktif',
+            ]
+        );
 
         if ($user->status === 'nonaktif') {
             return response()->json(['message' => 'Akun kamu telah dinonaktifkan'], 403);

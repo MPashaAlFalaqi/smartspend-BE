@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable; 
-use Illuminate\Database\Eloquent\Factories\HasFactory; // Tambahan aman untuk factory jika dibutuhkan
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable
 {
@@ -28,6 +28,7 @@ class User extends Authenticatable
         'google_id', 
         'role',
         'status',
+        'avatar', // <-- Berhasil ditambahkan di sini agar aman saat update profil
     ];
 
     /**
