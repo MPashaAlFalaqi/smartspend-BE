@@ -5,10 +5,49 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\BudgetPlanner;
 use App\Models\Transaction; // <-- Impor model Transaction
+use App\Models\User;        // Impor model User untuk update profil risiko
 use Illuminate\Support\Facades\Auth;
 
 class BudgetPlannerController extends Controller
 {
+    /**
+     * Fungsi Baru: Menyimpan hasil Profil Risiko Akhir langsung ke data User
+     * Endpoint rute: POST /api/final-analyze/save
+     */
+    public function saveFinalAnalyze(Request $request)
+    {
+        // 1. Validasi request dari frontend (FinalAnalyze.jsx)
+        $validated = $request->validate([
+            'total_pemasukan'   => 'required|numeric',
+            'budget_pokok'      => 'required|numeric',
+            'budget_keinginan'  => 'required|numeric',
+            'budget_tabungan'   => 'required|numeric',
+            'risk_profile'      => 'required|string', // Menangkap 'Konservatif', 'Moderat', atau 'Overspending'
+        ]);
+
+        // 2. Ambil user yang sedang login menggunakan token Bearer
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sesi login tidak valid atau token kedaluwarsa.'
+            ], 401);
+        }
+
+        // 3. Update kolom risk_profile milik user di tabel users
+        // Menggunakan instance model User agar langsung tersimpan ke database
+        $userData = User::find($user->id);
+        $userData->risk_profile = $validated['risk_profile'];
+        $userData->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil risiko berhasil disinkronkan ke database admin!',
+            'risk_profile_saved' => $userData->risk_profile
+        ], 200);
+    }
+
     public function store(Request $request)
     {
         // 1. Validasi data input murni dari frontend (ditambahkan validasi untuk array rincian)

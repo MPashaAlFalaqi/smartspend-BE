@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Transaction;
 use Exception;
-use Illuminate\Support\Facades\DB; // 👈 Impor DB Facade untuk query langsung
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller 
 {
@@ -65,39 +65,56 @@ class AdminController extends Controller
     }
 
     // ==========================================
-    // 👥 2. FUNGSI KELOLA DATA USER (MANAGE USERS)
+    // 👥 2. FUNGSI KELOLA DATA USER (MANAGE USERS) - PURE REALTIME
     // ==========================================
     public function getAllUsers(Request $request)
     {
         try {
-            // 1. Ambil semua data pengguna langsung dari tabel users
-            $users = User::orderBy('id', 'desc')->get();
+            // Ambil query pencarian jika ada dari React frontend (?search=...)
+            $search = $request->query('search');
 
-            // 2. Petakan format data agar sesuai dengan kolom tabel di React
+            $query = User::query();
+
+            if (!empty($search)) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('nama', 'like', '%' . $search . '%')
+                      ->orWhere('name', 'like', '%' . $search . '%')
+                      ->orWhere('email', 'like', '%' . $search . '%');
+                });
+            }
+
+            // Ambil data user secara real-time murni apa adanya dari database
+            $users = $query->orderBy('id', 'desc')->get();
+
+            // Transformasi data agar sesuai dengan format objek bertingkat React
             $dataUsers = $users->map(function ($user, $index) {
                 
-                // 🔥 JALUR BYPASS MANUAL: Cek langsung ke tabel risk_profiles pakai DB Facade
-                // Langkah ini mencocokkan id user dengan kolom user_id secara langsung tanpa lewat relasi Eloquent
-                $cekDataRisiko = DB::table('risk_profiles')
-                    ->where('user_id', $user->id)
-                    ->exists(); // Mengembalikan true jika data ada, false jika tidak ada
+                $dbValue = $user->risk_profile;
 
-                // 🔄 Tentukan status teks berdasarkan hasil pengecekan database di atas
-                if ($cekDataRisiko) {
-                    $hasilRisiko = 'Sudah Mengisi';
+                // Jika kolom di database kosong atau null, pasang teks "Belum Mengisi"
+                if (empty($dbValue)) {
+                    $riskStructure = [
+                        'kategori_risiko' => 'Belum Mengisi'
+                    ];
                 } else {
-                    $hasilRisiko = 'Belum Mengisi';
+                    // Jika ada isinya, ambil data asli secara dinamis sesuai baris user masing-masing
+                    $riskStructure = [
+                        'kategori_risiko' => $dbValue 
+                    ];
                 }
 
                 return [
                     'no'            => $index + 1,
                     'id'            => $user->id,
-                    'nama'          => $user->nama ?? $user->name, 
+                    'nama'          => $user->nama ?? ($user->name ?? 'Pengguna'), 
+                    'name'          => $user->nama ?? ($user->name ?? 'Pengguna'), 
                     'email'         => $user->email,
                     'status'        => $user->status ?? 'aktif',
-                    'profil_risiko' => $hasilRisiko, // 👈 Status "Sudah Mengisi" dijamin ter-update secara akurat!
+                    
+                    // Dikirim dalam bentuk objek: item.risk_profile.kategori_risiko
+                    'risk_profile'  => $riskStructure,
                 ];
-            });
+            })->all();
 
             return response()->json($dataUsers, 200);
 

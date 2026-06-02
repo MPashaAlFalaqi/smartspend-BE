@@ -11,11 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // PENCEGAHAN: Cek dulu, kalau kolom 'avatar' BELUM ADA, baru buat kolomnya
-        if (!Schema::hasColumn('users', 'avatar')) {
+        // Cek dulu biar aman, kalau belum ada kolom risk_profile baru kita buat
+        if (!Schema::hasColumn('users', 'risk_profile')) {
             Schema::table('users', function (Blueprint $table) {
-                // Menambahkan kolom avatar tipe LONGTEXT agar bisa menampung string Base64 gambar
-                $table->longText('avatar')->nullable()->after('email');
+                $table->string('risk_profile')->nullable()->after('email');
             });
         }
     }
@@ -25,10 +24,9 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // PENCEGAHAN: Cek dulu, kalau kolom 'avatar' MEMANG ADA, baru dihapus saat rollback
-        if (Schema::hasColumn('users', 'avatar')) {
+        if (Schema::hasColumn('users', 'risk_profile')) {
             Schema::table('users', function (Blueprint $table) {
-                $table->dropColumn('avatar');
+                $table->dropColumn('risk_profile');
             });
         }
     }

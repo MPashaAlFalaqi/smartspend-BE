@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -15,31 +16,35 @@ class TransactionController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Ambil user ID yang sedang login via Sanctum
-        $userId = auth()->id() ?? 8; 
+        // KUNCI UTAMA: Cari berdasarkan email dari frontend dulu agar anti tertukar
+        $frontendEmail = $request->input('email');
+        if (!empty($frontendEmail)) {
+            $user = User::where('email', $frontendEmail)->first();
+            $userId = $user ? $user->id : (auth()->id() ?? 8);
+        } else {
+            $userId = auth()->id() ?? 8; 
+        }
 
         $query = Transaction::where('user_id', $userId);
 
-        // 2. Filter Berdasarkan Tanggal/Bulan Menyesuaikan Fitur Kalender React
+        // Filter Berdasarkan Tanggal/Bulan Menyesuaikan Fitur Kalender React
         if ($request->has('tanggal') && $request->tanggal != '') {
             $date = Carbon::parse($request->tanggal);
 
             if ($request->get('mode') === 'day') {
-                // Jika user memilih tanggal spesifik di kalender
                 $query->whereDate('tanggal', $date->format('Y-m-d'));
             } else {
-                // Jika user melihat satu bulan penuh
                 $query->whereMonth('tanggal', $date->month)
                       ->whereYear('tanggal', $date->year);
             }
         }
 
-        // 3. Filter berdasarkan Tipe (Semua / Pemasukan / Pengeluaran)
+        // Filter berdasarkan Tipe (Semua / Pemasukan / Pengeluaran)
         if ($request->has('tipe') && $request->tipe != 'Semua') {
             $query->where('tipe', strtolower($request->tipe));
         }
 
-        // 4. Filter berdasarkan Kolom Pencarian (Nama atau Kategori)
+        // Filter berdasarkan Kolom Pencarian (Nama atau Kategori)
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -48,7 +53,7 @@ class TransactionController extends Controller
             });
         }
 
-        // 5. Urutkan dari transaksi terbaru
+        // Urutkan dari transaksi terbaru
         $transactions = $query->orderBy('tanggal', 'desc')->get();
 
         return response()->json([
@@ -64,7 +69,13 @@ class TransactionController extends Controller
     public function store(Request $request)
     {
         try {
-            $userId = auth()->id() ?? 8;
+            $frontendEmail = $request->input('email');
+            if (!empty($frontendEmail)) {
+                $user = User::where('email', $frontendEmail)->first();
+                $userId = $user ? $user->id : (auth()->id() ?? 8);
+            } else {
+                $userId = auth()->id() ?? 8; 
+            }
 
             $transaction = Transaction::create([
                 'user_id' => $userId,
@@ -91,10 +102,17 @@ class TransactionController extends Controller
     /**
      * Menghapus transaksi berdasarkan ID
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         try {
-            $userId = auth()->id() ?? 8;
+            $frontendEmail = $request->input('email');
+            if (!empty($frontendEmail)) {
+                $user = User::where('email', $frontendEmail)->first();
+                $userId = $user ? $user->id : (auth()->id() ?? 8);
+            } else {
+                $userId = auth()->id() ?? 8; 
+            }
+            
             $transaction = Transaction::where('id', $id)->where('user_id', $userId)->first();
 
             if (!$transaction) {
@@ -109,7 +127,7 @@ class TransactionController extends Controller
     }
 
     // =========================================================================
-    // ===== FITUR BARU: SINKRONISASI DASHBOARD & FINAL ANALYZE (DB-BASED) =====
+    // ===== SINKRONISASI FINISHING: AMAN DARI TERTUKAR DATA USER (ANTI MASS-UPDATE) =====
     // =========================================================================
 
     /**
@@ -118,23 +136,49 @@ class TransactionController extends Controller
     public function saveFinalAnalyze(Request $request) 
     {
         try {
-            $userId = auth()->id() ?? 8;
+            // KUNCI ID USER BERDASARKAN EMAIL SINKRONISASI FRONTEND
+            $frontendEmail = $request->input('email'); 
+            
+            if (!empty($frontendEmail)) {
+                $user = User::where('email', $frontendEmail)->first();
+            } else {
+                $user = auth()->user();
+            }
 
-            // Simpan data alokasi kalkulasi ke dalam tabel 'final_analyzes'
+            // Fallback darurat jika user sama sekali tidak terdeteksi
+            if (!$user) {
+                $firstUser = DB::table('users')->first();
+                $userId = $firstUser ? $firstUser->id : 1;
+            } else {
+                $userId = $user->id;
+            }
+
+            $riskProfile = $request->risk_profile ?: 'Konservatif';
+
+            // 1. UPDATE KHUSUS UNTUK USER YANG SEDANG AKTIF SAJA (Wajib pakai .where id!)
+            DB::table('users')->where('id', $userId)->update([
+                'risk_profile' => $riskProfile
+            ]);
+
+            // ❌ JALUR BYPASS MASS-UPDATE UNTUK SEMUA USER SUDAH DIHAPUS PERMANEN AGAR TIDAK MERUSAK DATA ORANG LAIN
+
+            // 2. MASUKKAN DATA BUDGET KE TABEL FINAL_ANALYZES
             DB::table('final_analyzes')->insert([
-                'user_id' => $userId,
-                'total_pemasukan' => $request->total_pemasukan,
-                'budget_pokok' => $request->budget_pokok,
-                'budget_keinginan' => $request->budget_keinginan,
-                'budget_tabungan' => $request->budget_tabungan,
-                'created_at' => now(),
-                'updated_at' => now()
+                'user_id'          => $userId,
+                'total_pemasukan'  => $request->total_pemasukan ?: 0,
+                'budget_pokok'     => $request->budget_pokok ?: 0,
+                'budget_keinginan' => $request->budget_keinginan ?: 0,
+                'budget_tabungan'  => $request->budget_tabungan ?: 0,
+                'created_at'       => now(),
+                'updated_at'       => now()
             ]);
 
             return response()->json([
                 'success' => true, 
-                'message' => 'Analisis akhir keuangan berhasil disimpan ke sistem!'
+                'message' => 'Analisis berhasil disimpan dengan aman!',
+                'profile' => $riskProfile
             ], 200);
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false, 
@@ -146,10 +190,16 @@ class TransactionController extends Controller
     /**
      * Mengirim Data Analisis Terakhir ke Dashboard
      */
-    public function getDashboardData()
+    public function getDashboardData(Request $request)
     {
         try {
-            $userId = auth()->id() ?? 8;
+            $frontendEmail = $request->input('email');
+            if (!empty($frontendEmail)) {
+                $user = User::where('email', $frontendEmail)->first();
+                $userId = $user ? $user->id : (auth()->id() ?? 8);
+            } else {
+                $userId = auth()->id() ?? 8; 
+            }
 
             // Ambil satu baris data analisis paling terbaru milik user ini
             $latestAnalysis = DB::table('final_analyzes')
