@@ -23,9 +23,21 @@ Route::post('/auth/google',    [AuthController::class, 'googleLogin']);
 Route::post('/password/email', [AuthController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [AuthController::class, 'resetPassword'])->name('password.reset');
 
-// 🧪 JALUR BYPASS UTAMA ADMIN (Aman di area luar publik)
-Route::get('/admin/dashboard', [AdminController::class, 'getDashboardData']);
-Route::get('/admin/users',     [AdminController::class, 'getAllUsers']);
+
+// ==========================================
+// 🔓 BYPASS ADMIN ROUTES (Area Publik Bebas Hambatan)
+// ==========================================
+Route::prefix('admin')->group(function () {
+    Route::get('/dashboard-data', [AdminController::class, 'getDashboardData']);
+    Route::get('/dashboard',      [AdminController::class, 'getDashboardData']); 
+    Route::get('/users',          [AdminController::class, 'getAllUsers']);
+    
+    // Akses manipulasi data pengguna via panel admin
+    Route::post('/users',         [AdminController::class, 'createUser']);
+    Route::put('/users/{id}',     [AdminController::class, 'updateUser']);
+    Route::delete('/users/{id}',  [AdminController::class, 'deleteUser']);
+    Route::patch('/users/{id}/toggle', [AdminController::class, 'toggleStatus']);
+});
 
 
 // ==========================================
@@ -38,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me',                    [AuthController::class, 'me']);
     Route::put('/user/update',           [AuthController::class, 'updateProfile']);
     Route::put('/user/update-password',  [AuthController::class, 'updatePassword']);
+    
+    // FITUR BARU: Rute hapus foto profil terikat dengan AuthController
+    Route::post('/user/delete-photo',    [AuthController::class, 'deletePhoto']);
 
     // --- Risk Profile ---
     Route::post('/risk-profile', [RiskProfileController::class, 'store']);
@@ -48,8 +63,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/budget-planner',  [BudgetPlannerController::class, 'show']);
 
     // --- Sinkronisasi Dashboard & Final Analyze User ---
-    Route::post('/final-analyze/save', [TransactionController::class, 'saveFinalAnalyze']);
-    Route::get('/dashboard-summary',   [TransactionController::class, 'getDashboardData']);
+    Route::post('/final-analyze/save', [BudgetPlannerController::class, 'saveFinalAnalyze']);
+    
+    // 🟢 FIXED: Diarahkan ke fungsi getDashboardSummary di BudgetPlannerController agar sinkron otomatis
+    Route::get('/dashboard-summary',   [BudgetPlannerController::class, 'getDashboardSummary']);
 
     // --- Transactions History ---
     Route::get('/transactions',        [TransactionController::class, 'index']);
@@ -57,20 +74,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/transactions/{id}', [TransactionController::class, 'destroy']);
 
     // ==========================================
-    // 👑 PROTECTED ADMIN ROUTES (Wajib Token Admin)
+    // 👑 PROTECTED ADMIN ROUTES (Wajib Token Admin Tambahan)
     // ==========================================
     Route::prefix('admin')->group(function () {
 
         // --- Manage Users (CRUD Pengguna) ---
-        // ❌ Jalur GET /users yang duplikat di sini SUDAH DIHAPUS agar tidak bentrok dengan bypass publik
         Route::get('/users/{id}',          [AdminController::class, 'getUser']);
-        Route::post('/users',              [AdminController::class, 'createUser']);
-        Route::put('/users/{id}',          [AdminController::class, 'updateUser']);
-        Route::delete('/users/{id}',       [AdminController::class, 'deleteUser']);
-        Route::patch('/users/{id}/toggle', [AdminController::class, 'toggleStatus']);
 
         // --- Manage Admins (CRUD Akses Sesama Admin) ---
-        // (Catatan: Jika nanti halaman kelola admin/reports juga kosong di React, keluarkan juga rute ini ke area publik atas)
         Route::get('/admins',         [AdminController::class, 'getAllAdmins']);
         Route::post('/admins',        [AdminController::class, 'createAdmin']);
         Route::put('/admins/{id}',    [AdminController::class, 'updateAdmin']);

@@ -9,6 +9,10 @@ class BudgetPlanner extends Model
 {
     use HasFactory;
 
+    // 🟢 KUNCI PERBAIKAN: Definisikan nama tabel secara tegas sesuai di phpMyAdmin Anda
+    protected $table = 'budget_planners';
+
+    // Kolom yang diizinkan untuk pengisian massal (Mass Assignment)
     protected $fillable = [
         'user_id',
         'pemasukan',
@@ -21,8 +25,11 @@ class BudgetPlanner extends Model
         'pesan_analisis'
     ];
 
+    /**
+     * Relasi ke model User
+     */
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

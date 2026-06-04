@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;    
-use Illuminate\Support\Str;             
+use Illuminate\Support\Str;            
 use Illuminate\Support\Facades\Password; 
 use Illuminate\Auth\Events\PasswordReset; 
 
@@ -142,6 +142,23 @@ class AuthController extends Controller
             'message' => 'Pengaturan keamanan berhasil diperbarui',
             'user'    => $user,
         ]);
+    }
+
+    /* FITUR BARU: Menghapus foto profil dari database tanpa mengganggu data lainnya */
+    public function deletePhoto(Request $request)
+    {
+        $user = $request->user();
+
+        // Karena Anda menyimpan foto profil langsung berupa string Base64 di database,
+        // kita hanya perlu mengubah nilai kolom avatar menjadi null.
+        $user->avatar = null;
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foto profil berhasil dihapus dari database.',
+            'user'    => $user
+        ], 200);
     }
 
     public function googleLogin(Request $request)
