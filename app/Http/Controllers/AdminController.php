@@ -20,7 +20,6 @@ class AdminController extends Controller
             $totalUsers = User::count() ?? 0;
             $activeUsers = User::where('status', 'aktif')->count() ?? 0;
             
-            // Grouping query status agar tidak merusak kalkulasi data agregat lainnya
             $nonActiveUsers = User::where(function($q) {
                 $q->where('status', 'nonaktif')
                   ->orWhere('status', 'ditangguhkan');
@@ -28,7 +27,6 @@ class AdminController extends Controller
 
             $totalTransactions = Transaction::count() ?? 0;
             
-            // Tren pertumbuhan user 6 bulan terakhir untuk Chart
             $trenPertumbuhan = [];
             for ($i = 5; $i >= 0; $i--) {
                 $bulanObj = now()->subMonths($i);
@@ -40,7 +38,6 @@ class AdminController extends Controller
                 ];
             }
 
-            // Distribusi profil risiko dari tabel budget_planners sesuai ERD nyata
             $konservatif = DB::table('budget_planners')->where('kategori_risiko', 'konservatif')->count() ?? 0;
             $moderat = DB::table('budget_planners')->where('kategori_risiko', 'moderat')->count() ?? 0;
             $agresif = DB::table('budget_planners')->where('kategori_risiko', 'agresif')->count() ?? 0;
@@ -94,7 +91,7 @@ class AdminController extends Controller
     }
 
     // ==========================================
-    // 👥 2. FUNGSI KELOLA DATA USER (MANAGE USERS)
+    // 👥 2. FUNGSI KELOLA DATA USER (SINKRONISASI AKURAT)
     // ==========================================
     public function getAllUsers(Request $request)
     {
@@ -113,16 +110,34 @@ class AdminController extends Controller
             $users = $query->orderBy('id', 'desc')->get();
 
             $dataUsers = $users->map(function ($user, $index) {
-                // Relasi manual ke budget_planners sesuai ERD
-                $latestBudget = DB::table('budget_planners')
+                
+                // 🎯 1. Cek tabel risk_profiles berdasarkan update waktu paling baru
+                $realRiskProfile = DB::table('risk_profiles')
                                     ->where('user_id', $user->id)
-                                    ->orderBy('id', 'desc')
+                                    ->latest('updated_at') // Ambil yang paling terakhir diupdate user
                                     ->first();
 
-                $dbValue = $latestBudget ? $latestBudget->kategori_risiko : null;
-                $riskStructure = [
-                    'kategori_risiko' => empty($dbValue) ? 'Belum Mengisi' : ucfirst($dbValue)
-                ];
+                $dbValue = null;
+                if ($realRiskProfile && isset($realRiskProfile->kategori_risiko)) {
+                    $dbValue = $realRiskProfile->kategori_risiko;
+                }
+                
+                // 🎯 2. Jika kosong, fallback ke budget_planners berdasarkan update waktu paling baru
+                if (empty($dbValue)) {
+                    $fallbackBudget = DB::table('budget_planners')
+                                        ->where('user_id', $user->id)
+                                        ->latest('updated_at') // Urutkan berdasarkan waktu pengerjaan terbaru
+                                        ->first();
+                    if ($fallbackBudget && isset($fallbackBudget->kategori_risiko)) {
+                        $dbValue = $fallbackBudget->kategori_risiko;
+                    }
+                }
+
+                // Normalisasi string teks profil risiko
+                $finalRiskLabel = 'Belum Mengisi';
+                if (!empty($dbValue)) {
+                    $finalRiskLabel = ucfirst(strtolower(trim($dbValue)));
+                }
 
                 return [
                     'no'            => $index + 1,
@@ -131,7 +146,9 @@ class AdminController extends Controller
                     'name'          => $user->nama ?? ($user->username ?? 'Pengguna'), 
                     'email'         => $user->email,
                     'status'        => $user->status ?? 'aktif',
-                    'risk_profile'  => $riskStructure,
+                    'risk_profile'  => [
+                        'kategori_risiko' => $finalRiskLabel
+                    ],
                 ];
             })->all();
 
@@ -221,7 +238,7 @@ class AdminController extends Controller
     }
 
     // ==========================================
-    // 🗑️ 5. FUNGSI HAPUS PENGGUNA (FIXED SINKRONISASI METHOD)
+    // 🗑️ 5. FUNGSI HAPUS PENGGUNA
     // ==========================================
     public function deleteUser($id)
     {
@@ -235,7 +252,6 @@ class AdminController extends Controller
                 ], 404);
             }
 
-            // Hapus data berelasi di tabel anak (Foreign Key) terlebih dahulu agar tidak memicu error Constraint DB
             DB::table('budget_planners')->where('user_id', $id)->delete();
             DB::table('risk_profiles')->where('user_id', $id)->delete();
             DB::table('transactions')->where('user_id', $id)->delete();
