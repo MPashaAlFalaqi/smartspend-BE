@@ -13,19 +13,19 @@ return [
     |
     | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     |
-    */
+    | */
 
-  'paths' => ['api/*'],
-'allowed_origins' => [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
+    'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-],
-'allowed_methods' => ['*'],
-'allowed_headers' => ['*'],
-'exposed_headers' => [],
-'max_age' => 0,
-'supports_credentials' => true,
+    'allowed_origins' => ['*'], // Diubah jadi bintang agar menerima Vercel kamu!
+
+    'allowed_methods' => ['*'],
+
+    'allowed_headers' => ['*'],
+
+    'exposed_headers' => [],
+
+    'max_age' => 0,
+
+    'supports_credentials' => false, // Diubah ke false jika allowed_origins menggunakan '*' agar tidak bentrok secara keamanan browser
 ];
