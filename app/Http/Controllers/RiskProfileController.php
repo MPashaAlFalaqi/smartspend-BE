@@ -52,7 +52,6 @@ class RiskProfileController extends Controller
             // ==========================================
             // 2. AMBIL STATUS RISIKO AWAL (SINKRON DB REAL)
             // ==========================================
-            // 🟢 PERBAIKAN: Ditambahkan $request->input('profil_risiko') agar sinkron dengan payload dari React
             $inputRisiko = $request->input('profil_risiko') ?? $request->input('risk_profile') ?? $request->input('kategori_risiko') ?? 'konservatif';
             $inputRisiko = strtolower(trim($inputRisiko));
 
@@ -77,9 +76,9 @@ class RiskProfileController extends Controller
                 [
                     'kategori_risiko'       => $kategoriRisiko,
                     'pemasukan'             => $request->penghasilan,  
-                    'pengeluaran_pokok'     => 0, // Fallback aman anti-error 1364
-                    'pengeluaran_keinginan' => 0, // Fallback aman anti-error 1364
-                    'tabungan_investasi'    => 0, // Fallback aman anti-error 1364
+                    'pengeluaran_pokok'     => 0, 
+                    'pengeluaran_keinginan' => 0, 
+                    'tabungan_investasi'    => 0, 
                     'pesan_analisis'        => 'Profil risiko awal berhasil dibuat.',
                     'created_at'            => now(),
                     'updated_at'            => now(),
@@ -125,7 +124,24 @@ class RiskProfileController extends Controller
             }
 
             $profile = RiskProfile::where('user_id', $user->id)->first();
-            return response()->json($profile ?? (object)[]);
+            
+            // Jika data profil risiko belum diisi / tidak ditemukan
+            if (!$profile) {
+                return response()->json((object)[]);
+            }
+
+            // 🟢 FIXED: Kembalikan data dalam bentuk struktur objek kustom dengan menyisipkan key 'pemasukan'
+            // Langkah ini menjembatani perbedaan nama kolom 'penghasilan' di DB dengan pembacaan 'pemasukan' di React
+            return response()->json([
+                'id'          => $profile->id,
+                'user_id'     => $profile->user_id,
+                'usia'        => $profile->usia,
+                'pekerjaan'   => $profile->pekerjaan,
+                'penghasilan' => $profile->penghasilan,
+                'pemasukan'   => $profile->penghasilan, // 🚀 Ini yang dicari oleh React kamu!
+                'created_at'  => $profile->created_at,
+                'updated_at'  => $profile->updated_at,
+            ], 200);
             
         } catch (Exception $e) {
             return response()->json((object)[]);
