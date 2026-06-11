@@ -13,19 +13,27 @@ return [
     |
     | To learn more: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     |
-    | */
+    */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    // 1. Buka semua path termasuk endpoint login/register jika tidak diawali /api
+    'paths' => ['api/*', 'sanctum/csrf-cookie', '*'], 
 
-    'allowed_origins' => ['*'], // Diubah jadi bintang agar menerima Vercel kamu!
+    // 2. Sebutkan domain Vercel & lokal secara spesifik (JANGAN pakai bintang '*' jika pakai Bearer token)
+    'allowed_origins' => [
+        'https://smartspend-fe.vercel.app', 
+        'http://localhost:5173'
+    ], 
 
-    'allowed_methods' => ['*'],
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
+
+    'allowed_methods' => ['*'],
 
     'exposed_headers' => [],
 
     'max_age' => 0,
 
-    'supports_credentials' => false, // Diubah ke false jika allowed_origins menggunakan '*' agar tidak bentrok secara keamanan browser
+    // 3. Set ke true agar browser mengizinkan pengiriman header Authorization & Cookie lintas domain
+    'supports_credentials' => true, 
 ];
