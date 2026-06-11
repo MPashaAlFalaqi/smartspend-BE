@@ -37,3 +37,9 @@ return [
     // 3. Set ke true agar browser mengizinkan pengiriman header Authorization & Cookie lintas domain
     'supports_credentials' => true, 
 ];
+Route::get('/clear-api-cache', function () {
+    Artisan::call('config:clear');
+    Artisan::call('cache:clear');
+    Artisan::call('route:clear');
+    return response()->json(['message' => 'Semua cache di Railway berhasil dibersihkan!']);
+});
