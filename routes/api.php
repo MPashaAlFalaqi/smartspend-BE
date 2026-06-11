@@ -94,3 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 });
+// Tempel ini di paling bawah file routes/api.php
+Route::get('/clear-api-cache', function () {
+    \Illuminate\Support\Facades\Artisan::call('config:clear');
+    \Illuminate\Support\Facades\Artisan::call('cache:clear');
+    \Illuminate\Support\Facades\Artisan::call('route:clear');
+    return response()->json(['message' => 'Semua cache di Railway berhasil dibersihkan!']);
+});
